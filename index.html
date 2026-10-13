@@ -21,8 +21,9 @@
 </head>
 <body>
 <div class="update-overlay hide" id="updateOverlay" role="dialog" aria-modal="true" aria-labelledby="updateTitle"><div class="update-card"><div class="eyebrow">МОЙ БЮДЖЕТ · ОБНОВЛЕНИЯ</div><h2 id="updateTitle">Обновление</h2><p id="updateMessage"></p><ul class="update-notes" id="updateNotes"></ul><button class="btn" id="updateAction" type="button">Понятно</button><button class="btn ghost" id="updateDismiss" type="button">Позже</button></div></div>
+<div class="pull-refresh" id="pullRefresh" aria-live="polite"><span class="pull-spinner"></span><span id="pullRefreshText">Потяни ещё для обновления</span></div>
 <main>
-<header><div class="brand">Мой <span>бюджет</span></div><div class="today" id="todayLabel"></div></header>
+<header><div class="brand">Мой <span>бюджет</span><span class="app-version" id="appVersion">v1.0.4</span></div><div class="today" id="todayLabel"></div></header>
 
 <section class="page active" id="page-home">
 <p class="intro">Всё по полочкам: лимиты, накопления и расходы без лишней математики.</p>
@@ -322,6 +323,38 @@ async function checkAppUpdates(){
  try{localStorage.setItem(VERSION_KEY,APP_VERSION)}catch(e){}
 }
 checkAppUpdates();
+
+/* Pull down to refresh in Safari and standalone mode. */
+(function setupPullToRefresh(){
+ const indicator=$("pullRefresh"),label=$("pullRefreshText");
+ if(!indicator||!label)return;
+ let startY=0,delta=0,tracking=false,refreshing=false;
+ const threshold=86;
+ document.addEventListener("touchstart",e=>{
+  if(refreshing||e.touches.length!==1||window.scrollY>0)return;
+  const target=e.target;
+  if(target&&target.closest&&target.closest("input,textarea,select,button,form"))return;
+  startY=e.touches[0].clientY;delta=0;tracking=startY<130;
+ },{passive:true});
+ document.addEventListener("touchmove",e=>{
+  if(!tracking||refreshing||e.touches.length!==1||window.scrollY>0)return;
+  delta=Math.max(0,e.touches[0].clientY-startY);
+  if(delta>8){indicator.classList.add("visible");label.textContent=delta>=threshold?"Отпусти — обновить":"Потяни ещё для обновления";if(e.cancelable)e.preventDefault()}
+ },{passive:false});
+ const finish=()=>{
+  if(!tracking)return;
+  tracking=false;
+  if(delta>=threshold&&!refreshing){
+   refreshing=true;label.textContent="Обновляем приложение…";
+   const url=new URL(window.location.href);url.searchParams.set("refresh",String(Date.now()));
+   window.location.replace(url.toString());
+  }else indicator.classList.remove("visible");
+  delta=0;
+ };
+ document.addEventListener("touchend",finish,{passive:true});
+ document.addEventListener("touchcancel",finish,{passive:true});
+})();
+
 </script>
 </body>
 </html>
