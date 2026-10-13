@@ -49,7 +49,7 @@
 <section class="page" id="page-analytics">
 <p class="intro">Понятная картина: куда уходят деньги, как меняются расходы и сколько бюджета осталось.</p>
 <div class="grid"><div class="stat"><div class="eyebrow">Потрачено всего</div><div class="num" id="aTotal">0 ₽</div></div><div class="stat"><div class="eyebrow">Средний расход в день</div><div class="num" id="aAverage">0 ₽</div></div><div class="stat"><div class="eyebrow">Самая дорогая покупка</div><div class="num" id="aBiggest">0 ₽</div></div><div class="stat"><div class="eyebrow">Записей расходов</div><div class="num" id="aCount">0</div></div></div>
-<div class="card" style="margin-top:14px"><h2 class="section-title">Расходы по категориям</h2><div id="categoryAnalytics"></div></div>
+<div class="card"><h2 class="section-title">Импорт выписки из банка</h2><p class="note">Загрузи выписку в CSV, OFX или QIF. Приложение распознает дату, описание и сумму, покажет предварительный просмотр и добавит выбранные операции в историю расходов и аналитику. Файл обрабатывается прямо в браузере и никуда не отправляется.</p><label class="field"><label for="bankStatementFile">Файл выписки</label><input type="file" id="bankStatementFile" accept=".csv,.txt,.ofx,.qif,text/csv,text/plain,application/x-ofx"></label><div id="bankImportStatus" class="note" style="margin-top:10px">Если банк предлагает выбор формата, выбирай CSV или OFX.</div><div id="bankImportPreview"></div><button class="btn secondary" id="bankImportCommit" style="display:none;margin-top:12px">Добавить выбранные расходы</button></div><div class="card" style="margin-top:14px"><h2 class="section-title">Расходы по категориям</h2><div id="categoryAnalytics"></div></div>
 <div class="card"><h2 class="section-title">По месяцам</h2><div id="monthlyAnalytics"></div></div>
 <div class="card"><h2 class="section-title">План / факт</h2><div id="planFact"></div></div>
 <div class="card"><h2 class="section-title">Резервная копия</h2><p class="note">Экспортируй расходы в CSV, чтобы сохранить историю отдельно. Данные хранятся в браузере этого устройства.</p><button class="btn secondary" id="export2">Экспортировать все расходы</button><div class="divider"></div><button class="btn ghost" id="backup">Скачать резервную копию настроек и расходов</button><label class="field" style="margin-top:14px"><label for="restoreFile">Восстановить из резервной копии JSON</label><input type="file" id="restoreFile" accept=".json,application/json"></label></div>
@@ -104,6 +104,92 @@ function updateFilters(){const sel=$("filterMonth"),old=sel.value,months=[...new
 function renderFiltered(){const m=$("filterMonth").value,c=$("filterCategory").value;renderExpenseList("allExpenses",data.expenses.filter(e=>(m==="all"||e.date.startsWith(m))&&(c==="all"||(e.category||"Другое")===c)))}
 $("filterMonth").addEventListener("change",renderFiltered);$("filterCategory").addEventListener("change",renderFiltered);
 function renderHome(){let start=data.start||todayISO,end=data.end||yearEnd;if(end<start){start=todayISO;end=yearEnd}const list=expensesIn(start,end),spent=sumExpenses(list),budget=Math.max(0,Number(data.budget)||0),savings=Math.max(0,Number(data.savings)||0),days=daysBetween(start,end),elapsed=Math.max(0,Math.min(days,Math.floor((parseDate(todayISO)-parseDate(start))/86400000)+1));let spendable=Math.max(0,budget-savings);if(start===p1start&&end===p1end)spendable=Math.max(0,computePlan(1,budget,Number(data.savePct[1])||0).movement);else if(start===p2start&&end===p2end)spendable=Math.max(0,computePlan(2,budget,Number(data.savePct[2])||0).movement);else if(start===todayISO&&end===yearEnd)spendable=Math.max(0,budget-savings-(data.includeIcloud?3600*days/daysBetween(p1start,yearEnd):0)-data.costs.filter(c=>c.enabled!==false).reduce((sum,c)=>{const p=String(c.period);let count=0;if(p==="both"){count+=(todayISO<p2start?1:0)+1}else if(p==="1"&&todayISO<p2start)count=1;else if(p==="2")count=1;return sum+Number(c.amount||0)*count},0));const daily=spendable/days,available=daily*elapsed-spent,remaining=spendable-spent;const progress=spendable?Math.max(0,Math.min(100,spent/spendable*100)):(spent?100:0);$("availableNow").textContent=money(available);$("availableNow").className="big "+(available<0?"bad":"");$("homePeriod").textContent=dateLabel(start)+" — "+dateLabel(end)+" · начислено "+money(daily*elapsed);$("leftBudget").textContent=money(remaining);$("savedHome").textContent=money(savings);$("dailyHome").textContent=money(daily);$("spentHome").textContent=money(spent);$("spentBar").style.width=progress+"%";$("spentProgressText").textContent="Потрачено "+money(spent);$("progressPct").textContent=Math.round(progress)+"%";$("daysLeftPill").textContent=Math.max(0,days-elapsed)+" дней осталось";renderExpenseList("recentExpenses",[...data.expenses].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4))}
+
+let stagedBankTransactions=[];
+function bankDate(value){
+ const v=String(value||"").trim();let m=v.match(/^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})/);
+ if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
+ m=v.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{2,4})$/);
+ if(m){let y=Number(m[3]);if(y<100)y+=y<70?2000:1900;return y+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0")}
+ return "";
+}
+function bankNumber(value){
+ let v=String(value??"").trim().replace(/[\\s\\u00a0₽руб.]/gi,"");
+ if(v.includes(",")&&v.includes(".")){if(v.lastIndexOf(",")>v.lastIndexOf("."))v=v.replace(/\\./g,"").replace(",",".");else v=v.replace(/,/g,"")}
+ else v=v.replace(",",".");
+ v=v.replace(/[^\\d.+-]/g,"");return Number(v);
+}
+function parseBankDelimited(text){
+ const clean=text.replace(/^\\uFEFF/,""),first=clean.split(/\\r?\\n/,1)[0]||"";
+ const delim=[";",",","\\t"].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
+ const rows=[];let row=[],field="",quoted=false;
+ for(let i=0;i<clean.length;i++){const c=clean[i];if(c==='"'&&quoted&&clean[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=!quoted;else if(c===delim&&!quoted){row.push(field);field=""}else if((c==="\\n"||c==="\\r")&&!quoted){if(c==="\\r"&&clean[i+1]==="\\n")i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field=""}else field+=c}
+ row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);return rows;
+}
+function guessBankCategory(name){
+ const n=String(name||"").toLowerCase();
+ if(/продукт|магазин|супермаркет|пятероч|магнит|лента|вкусвилл|еда|кафе|ресторан|food|grocery|restaurant|coffee/.test(n))return "Еда";
+ if(/такси|метро|автобус|транспорт|проезд|билет|uber|яндекс go|жд|ржд/.test(n))return "Транспорт";
+ if(/подпис|icloud|netflix|spotify|сервис|subscription/.test(n))return "Подписки";
+ if(/игр|steam|playstation|кино|развлеч|entertainment/.test(n))return "Развлечения";
+ if(/аптек|клиник|мед|здоров/.test(n))return "Здоровье";
+ if(/подар|цвет|gift/.test(n))return "Подарки";
+ return "Другое";
+}
+function bankKey(t){return [t.date,Math.abs(Number(t.amount)||0).toFixed(2),String(t.name||"").trim().toLowerCase().replace(/\\s+/g," ")].join("|")}
+function parseBankCSV(text){
+ const rows=parseBankDelimited(text);if(rows.length<2)return [];
+ const norm=x=>String(x||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]/g,"");
+ const hs=rows[0].map(norm),find=tests=>hs.findIndex(h=>tests.some(t=>h.includes(t)));
+ const di=find(["датаоперации","дататранзакции","датапроводки","дата","operationdate","transactiondate","posteddate","date"]);
+ const ni=find(["назначениеплатежа","описаниеоперации","описание","деталиоперации","контрагент","торговаяточка","merchant","description","memo","payee","name","details"]);
+ const ai=find(["суммаоперации","сумматранзакции","сумма","amount","transactionamount"]);
+ const debitI=find(["списание","расход","debit","withdrawal"]),creditI=find(["зачисление","поступление","credit","deposit"]),typeI=find(["типоперации","типтранзакции","операция","transactiontype","type"]);
+ if(di<0)return [];
+ const out=[];
+ for(const row of rows.slice(1)){
+  const get=i=>i>=0?String(row[i]??"").trim():"";const date=bankDate(get(di));if(!date)continue;
+  const name=get(ni)||"Операция из выписки";let amount=0,isExpense=false;
+  if(debitI>=0&&get(debitI)){amount=Math.abs(bankNumber(get(debitI)));isExpense=amount>0}
+  else if(ai>=0){amount=bankNumber(get(ai));const typ=(get(typeI)+" "+get(ni)).toLowerCase();isExpense=amount<0||/расход|списан|покупк|оплат|purchase|debit|withdrawal/.test(typ);amount=Math.abs(amount)}
+  if(creditI>=0&&get(creditI)&&!(debitI>=0&&get(debitI)))isExpense=false;
+  if(isExpense&&amount>0&&Number.isFinite(amount))out.push({name,amount,date,category:guessBankCategory(name)});
+ }
+ return out;
+}
+function parseBankOFX(text){
+ const out=[],blocks=text.match(/<STMTTRN>[\\s\\S]*?(?:<\\/STMTTRN>|(?=<STMTTRN>)|$)/gi)||[];
+ for(const block of blocks){const val=tag=>{const m=block.match(new RegExp("<"+tag+">([^<\\r\\n]+)","i"));return m?m[1].trim():""};
+  const amount=bankNumber(val("TRNAMT")),date=bankDate(val("DTPOSTED").slice(0,8)),name=val("NAME")||val("MEMO")||"Операция из выписки";
+  if(date&&amount<0)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)});
+ }return out;
+}
+function parseBankQIF(text){
+ const out=[];for(const block of text.split(/^\\^\\s*$/m)){const dm=block.match(/^D(.+)$/m),am=block.match(/^T(-?[\\d.,+-]+)$/m),pm=block.match(/^P(.+)$/m),mm=block.match(/^M(.+)$/m);if(!dm||!am)continue;const date=bankDate(dm[1]),amount=bankNumber(am[1]),name=(pm?.[1]||mm?.[1]||"Операция из выписки").trim();if(date&&amount<0)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)})}return out;
+}
+function renderBankPreview(){
+ const box=$("bankImportPreview"),btn=$("bankImportCommit");if(!stagedBankTransactions.length){box.innerHTML="";btn.style.display="none";return}
+ const existing=new Set(data.expenses.map(bankKey));
+ box.innerHTML='<p class="note">Найдено расходов: <strong>'+stagedBankTransactions.length+'</strong>. Выбери операции для импорта. Дубликаты отмечены и отключены.</p>'+stagedBankTransactions.map((t,i)=>{const duplicate=existing.has(bankKey(t));return '<label class="expense" style="align-items:center;cursor:pointer"><input type="checkbox" data-bankpick="'+i+'" '+(duplicate?'':'checked')+' '+(duplicate?'disabled':'')+' style="width:18px;height:18px;accent-color:var(--pink)"><span class="expinfo"><span class="expname">'+esc(t.name)+(duplicate?' · уже есть':'')+'</span><span class="expmeta">'+dateLabel(t.date)+' · '+esc(t.category)+'</span></span><strong class="expamount">'+money(t.amount)+'</strong></label>'}).join("");
+ $("bankImportStatus").textContent="Проверь список: доходы не импортируются как расходы.";btn.style.display=stagedBankTransactions.some(t=>!existing.has(bankKey(t)))?"block":"none";
+}
+$("bankStatementFile").addEventListener("change",async e=>{
+ const file=e.target.files?.[0];stagedBankTransactions=[];renderBankPreview();if(!file)return;
+ try{const content=await file.text(),ext=(file.name.split(".").pop()||"").toLowerCase();let items=[];
+  if(ext==="ofx"||/<OFX>|<STMTTRN>/i.test(content))items=parseBankOFX(content);else if(ext==="qif"||/^!Type:/im.test(content))items=parseBankQIF(content);else items=parseBankCSV(content);
+  if(!items.length){$("bankImportStatus").textContent="Не удалось распознать расходы. Попробуй CSV/OFX/QIF с датой, описанием и суммой списания. Некоторые CSV с положительными суммами могут требовать экспорта в OFX.";return}
+  stagedBankTransactions=items;$("bankImportStatus").textContent="Файл прочитан в браузере: "+file.name;renderBankPreview();
+ }catch(err){$("bankImportStatus").textContent="Не удалось прочитать файл. Попробуй экспортировать выписку в CSV или OFX."}
+ e.target.value="";
+});
+$("bankImportCommit").addEventListener("click",()=>{
+ const selected=[...$("bankImportPreview").querySelectorAll("[data-bankpick]:checked")].map(el=>stagedBankTransactions[Number(el.dataset.bankpick)]).filter(Boolean),existing=new Set(data.expenses.map(bankKey)),fresh=selected.filter(t=>!existing.has(bankKey(t)));
+ if(!fresh.length){alert("Нет новых расходов для импорта.");return}
+ if(!confirm("Добавить "+fresh.length+" расходов из выписки?"))return;
+ fresh.forEach((t,i)=>data.expenses.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+i,...t,source:"bank-statement"}));
+ save();stagedBankTransactions=[];renderBankPreview();$("bankImportStatus").textContent="Готово! Расходы добавлены в историю и аналитику.";renderAll();
+});
+
 function renderAnalytics(){const list=data.expenses,spent=sumExpenses(list),start=list.length?list.reduce((a,e)=>e.date<a?e.date:a,list[0].date):todayISO,span=list.length?Math.max(1,daysBetween(start,todayISO)):1; $("aTotal").textContent=money(spent);$("aAverage").textContent=money(spent/span);$("aBiggest").textContent=money(list.reduce((m,e)=>Math.max(m,Number(e.amount)||0),0));$("aCount").textContent=list.length;
 const cats={};list.forEach(e=>{const c=e.category||"Другое";cats[c]=(cats[c]||0)+Number(e.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);$("categoryAnalytics").innerHTML=sorted.length?sorted.map(([name,val])=>'<div class="barrow"><div class="barlabel"><span>'+esc(name)+'</span><strong>'+money(val)+' · '+Math.round(val/(spent||1)*100)+'%</strong></div><div class="bar"><i style="width:'+Math.max(1,val/(spent||1)*100)+'%"></i></div></div>').join(""):'<div class="empty">Добавь расходы, чтобы увидеть распределение.</div>';
 const months={};list.forEach(e=>{const m=e.date.slice(0,7);months[m]=(months[m]||0)+Number(e.amount||0)});const ms=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0]));const max=Math.max(1,...ms.map(x=>x[1]));$("monthlyAnalytics").innerHTML=ms.length?ms.map(([m,val])=>'<div class="barrow"><div class="barlabel"><span>'+parseDate(m+"-01").toLocaleDateString("ru-RU",{month:"long",year:"numeric"})+'</span><strong>'+money(val)+'</strong></div><div class="bar"><i style="width:'+val/max*100+'%"></i></div></div>').join(""):'<div class="empty">Пока нет данных по месяцам.</div>';
