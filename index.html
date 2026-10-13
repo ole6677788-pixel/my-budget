@@ -92,7 +92,7 @@
 <script>
 const $=id=>document.getElementById(id);
 const KEY="myBudgetApp_v2";
-const APP_VERSION="1.0.4";
+const APP_VERSION="1.1.0";
 const VERSION_KEY="myBudgetApp_seenVersion";
 const now=new Date();const todayISO=iso(now);const year=now.getFullYear();
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -313,6 +313,7 @@ $("saveMonthlyBudget").addEventListener("click",()=>{const key=activeMonthKey(),
 $("addDebt").addEventListener("click",()=>{const name=$("debtName").value.trim(),amount=Number($("debtAmount").value),month=$("debtMonth").value||activeMonthKey();if(!name||!Number.isFinite(amount)||amount<=0){alert("Введи, кому должен, и сумму больше нуля.");return}data.debts.push({id:String(Date.now())+"-"+Math.random().toString(36).slice(2,7),name,amount,month,paid:false});$("debtName").value="";$("debtAmount").value="";save();renderDebts();updateMonthlyPlan()});
 function migrateAndInit(){if(!data.start)data.start=todayISO;if(!data.end)data.end=yearEnd;$('monthSelector').value=currentCycleKey();$('monthBudget').value=data.monthlyBudgets[activeMonthKey()]??'';$('debtMonth').value=activeMonthKey();$('monthlyBudgetStatus').textContent=data.monthlyBudgets[activeMonthKey()]!==undefined?"Загружен сохранённый бюджет за "+activeMonthKey()+".":"Для этого месяца бюджет ещё не сохранён.";renderDebts();renderAll();updateMonthlyPlan(false)}
 migrateAndInit();
+loadAccount();
 
 function showUpdateDialog(title,message,notes,actionLabel,actionFn,dismissLabel="Позже"){
  const overlay=$("updateOverlay"),list=$("updateNotes");
