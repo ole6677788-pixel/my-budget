@@ -71,7 +71,8 @@ const defaultData={budget:10000,savings:5000,start:todayISO,end:yearEnd,expenses
 let data={...defaultData};
 try{const old=JSON.parse(localStorage.getItem("myBudgetApp_v1"));if(old)data={...data,...old,budgets:{...data.budgets,...(old.budgets||{})},expenses:old.expenses||[]}}catch(e){}
 try{const saved=JSON.parse(localStorage.getItem(KEY));if(saved)data={...data,...saved,budgets:{...data.budgets,...(saved.budgets||{})},savePct:{...data.savePct,...(saved.savePct||{})},expenses:saved.expenses||[],costs:saved.costs||[]}}catch(e){}
-if(!localStorage.getItem(KEY)){data.start=todayISO;data.end=yearEnd;}\nif(!data.budgets.quick && data.budget)data.budgets.quick=String(data.budget);
+if(!localStorage.getItem(KEY)){data.start=todayISO;data.end=yearEnd;}
+if(!data.budgets.quick && data.budget)data.budgets.quick=String(data.budget);
 if(data.savings!=null && data.budget && data.savePct[1]===50 && data.savings!==data.budget*.5){data.savePct[1]=Math.round(data.savings/data.budget*100)||50}
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 function showPage(name){document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id==="page-"+name));document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.page===name));if(name==="analytics")renderAnalytics();window.scrollTo({top:0,behavior:"smooth"})}
