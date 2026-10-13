@@ -110,9 +110,9 @@ function renderHome(){let start=data.start||todayISO,end=data.end||yearEnd;if(en
 let stagedBankTransactions=[];
 const CLOUD_API="https://budget-api-production-68c4.up.railway.app";
 const CLOUD_TOKEN_KEY="myBudgetCloudToken_v1";
-let cloudSaveTimer=null,cloudBusy=false;
+let cloudSaveTimer=null,cloudBusy=false,cloudReady=false;
 function cloudToken(){return localStorage.getItem(CLOUD_TOKEN_KEY)||""}
-function scheduleCloudSave(){if(!cloudToken()||cloudBusy)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>pushCloudState(),900)}
+function scheduleCloudSave(){if(!cloudToken()||!cloudReady||cloudBusy)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>pushCloudState(),900)}
 async function cloudRequest(path,options={}){const token=cloudToken();if(!token)throw new Error("Введи ключ доступа.");const response=await fetch(CLOUD_API+path,{...options,headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json",...(options.headers||{})}});if(response.status===401)throw new Error("Ключ доступа не подошёл.");if(!response.ok)throw new Error("Сервер ответил ошибкой "+response.status);return response.json()}
 async function pushCloudState(){if(!cloudToken()||cloudBusy)return;cloudBusy=true;try{await cloudRequest("/api/state",{method:"PUT",body:JSON.stringify(data)});$("cloudStatus").textContent="Синхронизировано с облаком · "+new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})}catch(e){$("cloudStatus").textContent="Не удалось сохранить в облако: "+e.message}finally{cloudBusy=false}}
 $("cloudToken").value=cloudToken();
