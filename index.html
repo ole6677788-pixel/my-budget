@@ -107,23 +107,23 @@ function renderHome(){let start=data.start||todayISO,end=data.end||yearEnd;if(en
 
 let stagedBankTransactions=[];
 function bankDate(value){
- const v=String(value||"").trim();let m=v.match(/^(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})/);
+ const v=String(value||"").trim();let m=v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
  if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
- m=v.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{2,4})$/);
+ m=v.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
  if(m){let y=Number(m[3]);if(y<100)y+=y<70?2000:1900;return y+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0")}
  return "";
 }
 function bankNumber(value){
- let v=String(value??"").trim().replace(/[\\s\\u00a0₽руб.]/gi,"");
- if(v.includes(",")&&v.includes(".")){if(v.lastIndexOf(",")>v.lastIndexOf("."))v=v.replace(/\\./g,"").replace(",",".");else v=v.replace(/,/g,"")}
+ let v=String(value??"").trim().replace(/[\s\u00a0₽руб.]/gi,"");
+ if(v.includes(",")&&v.includes(".")){if(v.lastIndexOf(",")>v.lastIndexOf("."))v=v.replace(/\./g,"").replace(",",".");else v=v.replace(/,/g,"")}
  else v=v.replace(",",".");
- v=v.replace(/[^\\d.+-]/g,"");return Number(v);
+ v=v.replace(/[^\d.+-]/g,"");return Number(v);
 }
 function parseBankDelimited(text){
- const clean=text.replace(/^\\uFEFF/,""),first=clean.split(/\\r?\\n/,1)[0]||"";
- const delim=[";",",","\\t"].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
+ const clean=text.replace(/^\uFEFF/,""),first=clean.split(/\r?\n/,1)[0]||"";
+ const delim=[";",",","\t"].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
  const rows=[];let row=[],field="",quoted=false;
- for(let i=0;i<clean.length;i++){const c=clean[i];if(c==='"'&&quoted&&clean[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=!quoted;else if(c===delim&&!quoted){row.push(field);field=""}else if((c==="\\n"||c==="\\r")&&!quoted){if(c==="\\r"&&clean[i+1]==="\\n")i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field=""}else field+=c}
+ for(let i=0;i<clean.length;i++){const c=clean[i];if(c==='"'&&quoted&&clean[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=!quoted;else if(c===delim&&!quoted){row.push(field);field=""}else if((c==="\n"||c==="\r")&&!quoted){if(c==="\r"&&clean[i+1]==="\n")i++;row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);row=[];field=""}else field+=c}
  row.push(field);if(row.some(x=>String(x).trim()))rows.push(row);return rows;
 }
 function guessBankCategory(name){
@@ -136,7 +136,7 @@ function guessBankCategory(name){
  if(/подар|цвет|gift/.test(n))return "Подарки";
  return "Другое";
 }
-function bankKey(t){return [t.date,Math.abs(Number(t.amount)||0).toFixed(2),String(t.name||"").trim().toLowerCase().replace(/\\s+/g," ")].join("|")}
+function bankKey(t){return [t.date,Math.abs(Number(t.amount)||0).toFixed(2),String(t.name||"").trim().toLowerCase().replace(/\s+/g," ")].join("|")}
 function parseBankCSV(text){
  const rows=parseBankDelimited(text);if(rows.length<2)return [];
  const norm=x=>String(x||"").toLowerCase().replace(/ё/g,"е").replace(/[^a-zа-я0-9]/g,"");
@@ -158,14 +158,14 @@ function parseBankCSV(text){
  return out;
 }
 function parseBankOFX(text){
- const out=[],blocks=text.match(/<STMTTRN>[\\s\\S]*?(?:<\\/STMTTRN>|(?=<STMTTRN>)|$)/gi)||[];
+ const out=[],blocks=text.match(/<STMTTRN>[\s\S]*?(?:<\/STMTTRN>|(?=<STMTTRN>)|$)/gi)||[];
  for(const block of blocks){const val=tag=>{const m=block.match(new RegExp("<"+tag+">([^<\\r\\n]+)","i"));return m?m[1].trim():""};
   const amount=bankNumber(val("TRNAMT")),date=bankDate(val("DTPOSTED").slice(0,8)),name=val("NAME")||val("MEMO")||"Операция из выписки";
   if(date&&amount<0)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)});
  }return out;
 }
 function parseBankQIF(text){
- const out=[];for(const block of text.split(/^\\^\\s*$/m)){const dm=block.match(/^D(.+)$/m),am=block.match(/^T(-?[\\d.,+-]+)$/m),pm=block.match(/^P(.+)$/m),mm=block.match(/^M(.+)$/m);if(!dm||!am)continue;const date=bankDate(dm[1]),amount=bankNumber(am[1]),name=(pm?.[1]||mm?.[1]||"Операция из выписки").trim();if(date&&amount<0)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)})}return out;
+ const out=[];for(const block of text.split(/^\^\s*$/m)){const dm=block.match(/^D(.+)$/m),am=block.match(/^T(-?[\d.,+-]+)$/m),pm=block.match(/^P(.+)$/m),mm=block.match(/^M(.+)$/m);if(!dm||!am)continue;const date=bankDate(dm[1]),amount=bankNumber(am[1]),name=(pm?.[1]||mm?.[1]||"Операция из выписки").trim();if(date&&amount<0)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)})}return out;
 }
 function renderBankPreview(){
  const box=$("bankImportPreview"),btn=$("bankImportCommit");if(!stagedBankTransactions.length){box.innerHTML="";btn.style.display="none";return}
