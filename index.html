@@ -49,7 +49,7 @@
 <section class="page" id="page-analytics">
 <p class="intro">Понятная картина: куда уходят деньги, как меняются расходы и сколько бюджета осталось.</p>
 <div class="grid"><div class="stat"><div class="eyebrow">Потрачено всего</div><div class="num" id="aTotal">0 ₽</div></div><div class="stat"><div class="eyebrow">Средний расход в день</div><div class="num" id="aAverage">0 ₽</div></div><div class="stat"><div class="eyebrow">Самая дорогая покупка</div><div class="num" id="aBiggest">0 ₽</div></div><div class="stat"><div class="eyebrow">Записей расходов</div><div class="num" id="aCount">0</div></div></div>
-<div class="card"><h2 class="section-title">Импорт выписки из банка</h2><p class="note">Загрузи выписку в CSV, OFX или QIF. Приложение распознает дату, описание и сумму, покажет предварительный просмотр и добавит выбранные операции в историю расходов и аналитику. Файл обрабатывается прямо в браузере и никуда не отправляется.</p><label class="field"><label for="bankStatementFile">Файл выписки</label><input type="file" id="bankStatementFile" accept=".csv,.txt,.ofx,.qif,text/csv,text/plain,application/x-ofx"></label><div id="bankImportStatus" class="note" style="margin-top:10px">Если банк предлагает выбор формата, выбирай CSV или OFX.</div><div id="bankImportPreview"></div><button class="btn secondary" id="bankImportCommit" style="display:none;margin-top:12px">Добавить выбранные расходы</button></div><div class="card" style="margin-top:14px"><h2 class="section-title">Расходы по категориям</h2><div id="categoryAnalytics"></div></div>
+<div class="card"><h2 class="section-title">Импорт выписки из банка</h2><p class="note">Загрузи текстовую выписку Т-Банка (.txt) или CSV/OFX/QIF. Приложение попробует распознать дату, описание и сумму, покажет предварительный просмотр и добавит выбранные расходы в историю и аналитику. Файл обрабатывается прямо в браузере и никуда не отправляется.</p><label class="field"><label for="bankStatementFile">Файл выписки</label><input type="file" id="bankStatementFile" accept=".csv,.txt,.ofx,.qif,text/csv,text/plain,application/x-ofx"></label><div id="bankImportStatus" class="note" style="margin-top:10px">Выбери TXT-выписку Т-Банка. Если распознавание не сработает, экспортируй CSV или пришли пример TXT без ФИО, номера карты, счёта и других личных данных.</div><div id="bankImportPreview"></div><button class="btn secondary" id="bankImportCommit" style="display:none;margin-top:12px">Добавить выбранные расходы</button></div><div class="card" style="margin-top:14px"><h2 class="section-title">Расходы по категориям</h2><div id="categoryAnalytics"></div></div>
 <div class="card"><h2 class="section-title">По месяцам</h2><div id="monthlyAnalytics"></div></div>
 <div class="card"><h2 class="section-title">План / факт</h2><div id="planFact"></div></div>
 <div class="card"><h2 class="section-title">Резервная копия</h2><p class="note">Экспортируй расходы в CSV, чтобы сохранить историю отдельно. Данные хранятся в браузере этого устройства.</p><button class="btn secondary" id="export2">Экспортировать все расходы</button><div class="divider"></div><button class="btn ghost" id="backup">Скачать резервную копию настроек и расходов</button><label class="field" style="margin-top:14px"><label for="restoreFile">Восстановить из резервной копии JSON</label><input type="file" id="restoreFile" accept=".json,application/json"></label></div>
@@ -157,6 +157,50 @@ function parseBankCSV(text){
  }
  return out;
 }
+function parseBankTXT(text){
+ // First try the delimited-table parser: some bank TXT exports are tab/semicolon separated.
+ const table=parseBankCSV(text);
+ if(table.length)return table;
+ const normalized=text.replace(/^\uFEFF/,"").replace(/\r/g,"");
+ const lines=normalized.split("\n").map(x=>x.trim()).filter(Boolean);
+ const out=[];
+ // Support text statements organized as labeled blocks (date / description / amount).
+ let block={};
+ const flush=()=>{
+  const date=bankDate(block.date||"");
+  const raw=String(block.amount||"").trim();
+  const amount=bankNumber(raw);
+  const name=String(block.name||block.description||block.details||"Операция из выписки").trim();
+  const expense=raw.startsWith("-")||/списан|расход|покупк|оплат|перевод с|платеж|платёж|purchase|debit|withdrawal/i.test((block.type||"")+" "+name);
+  if(date&&amount>0&&expense)out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)});
+  block={};
+ };
+ for(const line of lines){
+  const m=line.match(/^\s*([^:：]+)\s*[:：]\s*(.*?)\s*$/);
+  if(m){
+   const key=m[1].toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim(),value=m[2].trim();
+   if(/^(дата|дата операции|дата проводки|operation date|date)$/.test(key)){if(block.date)flush();block.date=value}
+   else if(/^(сумма|сумма операции|сумма в валюте операции|amount|transaction amount|списание|расход)$/.test(key))block.amount=value;
+   else if(/^(описание|назначение|наименование операции|торговая точка|контрагент|description|merchant|details|получатель)$/.test(key))block.name=value;
+   else if(/^(тип|тип операции|операция|type)$/.test(key))block.type=value;
+   continue;
+  }
+  // Common single-line text: date, description, amount (space/tab separated).
+  const d=line.match(/(?:^|\s)(\d{2}[./-]\d{2}[./-]\d{2,4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})(?=\s|$)/);
+  if(d){
+   const date=bankDate(d[1]);const tail=line.slice((d.index||0)+d[0].length).trim();
+   const amounts=[...tail.matchAll(/(?:^|\s)([-+]?\s*\d[\d \u00a0]*(?:[.,]\d{2})?)\s*(?:₽|руб(?:\.|лей)?|RUB)?(?=\s|$)/gi)];
+   if(date&&amounts.length){
+    const am=amounts[amounts.length-1],raw=am[1].replace(/\s/g,""),amount=bankNumber(raw);
+    const name=(tail.slice(0,am.index).trim()||"Операция из выписки");
+    if(amount>0&&(raw.startsWith("-")||/списан|расход|покупк|оплат|перевод с|платеж|платёж|purchase|debit|withdrawal/i.test(name)))out.push({name,amount:Math.abs(amount),date,category:guessBankCategory(name)});
+    continue;
+   }
+  }
+ }
+ if(block.date)flush();
+ return out;
+}
 function parseBankOFX(text){
  const out=[],blocks=text.match(/<STMTTRN>[\s\S]*?(?:<\/STMTTRN>|(?=<STMTTRN>)|$)/gi)||[];
  for(const block of blocks){const val=tag=>{const m=block.match(new RegExp("<"+tag+">([^<\\r\\n]+)","i"));return m?m[1].trim():""};
@@ -176,8 +220,8 @@ function renderBankPreview(){
 $("bankStatementFile").addEventListener("change",async e=>{
  const file=e.target.files?.[0];stagedBankTransactions=[];renderBankPreview();if(!file)return;
  try{const content=await file.text(),ext=(file.name.split(".").pop()||"").toLowerCase();let items=[];
-  if(ext==="ofx"||/<OFX>|<STMTTRN>/i.test(content))items=parseBankOFX(content);else if(ext==="qif"||/^!Type:/im.test(content))items=parseBankQIF(content);else items=parseBankCSV(content);
-  if(!items.length){$("bankImportStatus").textContent="Не удалось распознать расходы. Попробуй CSV/OFX/QIF с датой, описанием и суммой списания. Некоторые CSV с положительными суммами могут требовать экспорта в OFX.";return}
+  if(ext==="ofx"||/<OFX>|<STMTTRN>/i.test(content))items=parseBankOFX(content);else if(ext==="qif"||/^!Type:/im.test(content))items=parseBankQIF(content);else if(ext==="txt")items=parseBankTXT(content);else items=parseBankCSV(content);
+  if(!items.length){$("bankImportStatus").textContent="Не удалось распознать расходы в TXT. Формат выписки может отличаться: попробуй CSV/OFX или проверь, что в TXT есть даты, описания и суммы операций.";return}
   stagedBankTransactions=items;$("bankImportStatus").textContent="Файл прочитан в браузере: "+file.name;renderBankPreview();
  }catch(err){$("bankImportStatus").textContent="Не удалось прочитать файл. Попробуй экспортировать выписку в CSV или OFX."}
  e.target.value="";
