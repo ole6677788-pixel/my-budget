@@ -21,6 +21,17 @@ input[type=range]{width:100%;padding:0;border:0;background:transparent;accent-co
 .action-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .action-tile{min-width:0;min-height:86px;padding:13px 8px;border-radius:15px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-weight:750;font-size:12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left}
 .action-tile .action-icon{font-size:22px;color:var(--pink)}
+.quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.quick-action{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;padding:12px 7px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);font-size:13px;font-weight:700}
+.quick-action span{font-size:17px;color:var(--pink)}
+.card{background:var(--panel);border-radius:16px;padding:16px;margin-bottom:12px}
+.hero{background:#201a28;border-color:#3a2c40}
+body{background:var(--bg)}
+.brand{font-size:24px}
+.intro{font-size:13px;margin-bottom:14px}
+.stat{border-radius:13px;padding:13px}
+.stat .num{font-size:clamp(16px,4vw,21px)}
+@media(max-width:350px){.quick-action{font-size:11px;gap:4px;padding:11px 4px}}
 @media(max-width:390px){.action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(min-width:620px){main{padding-left:22px;padding-right:22px}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.tabs{left:50%;right:auto;transform:translateX(-50%);width:min(760px,100%);border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0}}
 
@@ -43,21 +54,16 @@ input[type=range]{width:100%;padding:0;border:0;background:transparent;accent-co
 <div class="stat"><div class="eyebrow">Лимит в день</div><div class="num" id="dailyHome">0 ₽</div></div>
 <div class="stat"><div class="eyebrow">Расходы за период</div><div class="num" id="spentHome">0 ₽</div></div>
 </div>
-<div class="card" style="margin-top:14px"><div class="row"><h2 class="section-title" style="margin:0">Быстрые действия</h2><span class="pill" id="daysLeftPill">— дней</span></div><div class="action-grid" style="margin-top:14px">
-<button class="action-tile" type="button" onclick="showPage('expenses')"><span class="action-icon">＋</span><span>Добавить расход</span></button>
-<button class="action-tile" type="button" onclick="showPage('plan')"><span class="action-icon">▦</span><span>Добавить план</span></button>
-<button class="action-tile" type="button" onclick="showPage('debts')"><span class="action-icon">↗</span><span>Добавить долг</span></button>
-</div></div>
-<div class="card"><h2 class="section-title">Последние расходы</h2><div id="recentExpenses"></div><button class="btn secondary" style="margin-top:12px" onclick="showPage('profile')">Вся история</button></div><div class="card"><h2 class="section-title">Под рукой</h2><div class="action-grid"><button class="action-tile" type="button" onclick="showPage('plan')"><span class="action-icon">▦</span><span>Мой план</span></button><button class="action-tile" type="button" onclick="showPage('debts')"><span class="action-icon">↗</span><span>Мои долги</span></button><button class="action-tile" type="button" onclick="showPage('analytics')"><span class="action-icon">◔</span><span>Аналитика</span></button></div></div>
+<div class="quick-actions">
+<button class="quick-action" type="button" onclick="showPage('expenses')"><span>＋</span>Расход</button>
+<button class="quick-action" type="button" onclick="showPage('plan')"><span>▦</span>План</button>
+<button class="quick-action" type="button" onclick="showPage('debts')"><span>↗</span>Долг</button>
+</div>
+<div class="card"><div class="row"><h2 class="section-title" style="margin:0">Последние расходы</h2><span class="pill" id="daysLeftPill">— дней</span></div><div id="recentExpenses" style="margin-top:8px"></div><button class="btn secondary" style="margin-top:10px" onclick="showPage('profile')">Вся история</button></div>
 </section>
 
 <section class="page" id="page-plan">
 <p class="intro">Один экран — один понятный шаг. Выбери месяц, укажи бюджет и долю накоплений. Остаток автоматически станет доступным бюджетом.</p>
-<div class="card"><h2 class="section-title">Быстрый переход</h2><div class="action-grid">
-<button class="action-tile" type="button" onclick="document.getElementById('monthBudget').focus()"><span class="action-icon">＋</span><span>Новый план</span></button>
-<button class="action-tile" type="button" onclick="showPage('debts')"><span class="action-icon">↗</span><span>Долги</span></button>
-<button class="action-tile" type="button" onclick="showPage('expenses')"><span class="action-icon">−</span><span>Расходы</span></button>
-</div></div>
 <div class="card" id="monthlyPlanner"><h2 class="section-title">План на месяц</h2><p class="note">Плановый цикл — с 11-го числа до 11-го числа следующего месяца. Выбери месяц и укажи бюджет. Процент накоплений настраивается ползунком от 0 до 100%.</p><label class="field"><label for="monthSelector">Месяц расчёта</label><input id="monthSelector" type="month" value="${year}-${String(now.getMonth()+1).padStart(2,"0")}"></label><label class="field"><label for="monthBudget">Бюджет на выбранный месяц, ₽</label><input id="monthBudget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Например, 10 000"></label>
 <div class="range-wrap"><div class="range-head"><label for="monthlySavePct" style="font-size:12px;color:var(--muted)">В накопления</label><output class="range-value" id="monthlySavePctValue">50%</output></div><input id="monthlySavePct" type="range" min="0" max="100" step="1" value="50" aria-label="Процент бюджета в накопления"><div class="range-scale"><span>0% · всё в бюджет</span><span>100% · всё в накопления</span></div></div>
 <button class="btn" id="saveMonthlyBudget" type="button">Сохранить план</button><div id="monthlyBudgetStatus" class="note" style="margin-top:10px">Выбери месяц, укажи сумму и нажми «Сохранить бюджет».</div><div id="monthCalc"></div><div class="divider"></div><div class="row"><div><h3 class="section-title" style="font-size:16px;margin-bottom:5px">Есть долги?</h3><p class="note">Управляй долгами отдельно — они автоматически учитываются в плане месяца.</p></div><button class="btn secondary small" type="button" onclick="showPage('debts')">Открыть долги</button></div></div>
@@ -116,7 +122,7 @@ input[type=range]{width:100%;padding:0;border:0;background:transparent;accent-co
 </div>
 <div class="card"><h2 class="section-title">О безопасности</h2><p class="note">Никому не отправляй ссылки подтверждения и не передавай свой аккаунт. Данные разных пользователей хранятся отдельно.</p></div>
 <div class="card"><h2 class="section-title">Полная история</h2><p class="note">Здесь хранятся сохранённые планы и все расходы с фильтрами по месяцу и категории.</p><h3 class="section-title" style="font-size:15px">Сохранённые планы</h3><div id="monthlyPlanHistory"></div><div class="divider"></div><div class="row"><span class="eyebrow">РАСХОДЫ</span><button class="btn small secondary" id="export" type="button">Экспорт CSV</button></div><div class="fields" style="margin-top:14px"><label class="field"><label for="filterMonth">Месяц</label><select id="filterMonth"><option value="all">Все месяцы</option></select></label><label class="field"><label for="filterCategory">Категория</label><select id="filterCategory"><option value="all">Все категории</option><option>Еда</option><option>Транспорт</option><option>Развлечения</option><option>Покупки</option><option>Подписки</option><option>Подарки</option><option>Здоровье</option><option>Другое</option></select></label></div><div id="profileHistory"></div></div>
-<div class="card"><h2 class="section-title">О приложении</h2><div class="row"><span class="muted">Версия</span><strong class="pink" id="aboutVersion">v1.2.0</strong></div><p class="note" style="margin-top:10px">«Мой бюджет» помогает планировать бюджет, учитывать накопления и долги, записывать расходы и разбирать статистику. Данные можно синхронизировать через Telegram-аккаунт.</p><div class="divider"></div><h3 class="section-title" style="font-size:15px">История обновлений</h3><div class="planline"><span><strong>v1.3.0</strong><br><span class="note">14 октября 2026</span></span><span class="note" style="text-align:right">Упрощена главная, добавлен отдельный раздел долгов и ползунок накоплений 0–100%.</span></div><div class="planline"><span><strong>v1.2.0</strong><br><span class="note">14 октября 2026</span></span><span class="note" style="text-align:right">Исправлен расчёт без накоплений, добавлены уведомление о сохранении, полная история и описание приложения.</span></div><div class="planline"><span><strong>v1.1.0</strong><br><span class="note">13 октября 2026</span></span><span class="note" style="text-align:right">Профиль и подготовка входа через Telegram, облачная синхронизация.</span></div><div class="planline"><span><strong>v1.0.4</strong><br><span class="note">13 октября 2026</span></span><span class="note" style="text-align:right">Обновление приложения, отображение версии и обновление свайпом вниз.</span></div></div>
+<div class="card"><h2 class="section-title">О приложении</h2><div class="row"><span class="muted">Версия</span><strong class="pink" id="aboutVersion">v1.4.0</strong></div><p class="note" style="margin-top:10px">«Мой бюджет» помогает планировать бюджет, учитывать накопления и долги, записывать расходы и разбирать статистику. Данные можно синхронизировать через Telegram-аккаунт.</p><div class="divider"></div><h3 class="section-title" style="font-size:15px">История обновлений</h3><div class="planline"><span><strong>v1.4.0</strong><br><span class="note">14 октября 2026</span></span><span class="note" style="text-align:right">Убраны дублирующие карточки и лишние переходы. Главная стала компактнее, быстрые действия собраны в одну строку.</span></div><div class="planline"><span><strong>v1.3.0</strong><br><span class="note">14 октября 2026</span></span><span class="note" style="text-align:right">Добавлен ползунок накоплений 0–100% и отдельный раздел долгов.</span></div><div class="planline"><span><strong>v1.2.0</strong><br><span class="note">14 октября 2026</span></span><span class="note" style="text-align:right">Исправлен расчёт без накоплений, добавлены уведомление о сохранении, полная история и описание приложения.</span></div><div class="planline"><span><strong>v1.1.0</strong><br><span class="note">13 октября 2026</span></span><span class="note" style="text-align:right">Профиль и подготовка входа через Telegram, облачная синхронизация.</span></div><div class="planline"><span><strong>v1.0.4</strong><br><span class="note">13 октября 2026</span></span><span class="note" style="text-align:right">Обновление приложения, отображение версии и обновление свайпом вниз.</span></div></div>
 </section>
 
 </main>
@@ -124,7 +130,7 @@ input[type=range]{width:100%;padding:0;border:0;background:transparent;accent-co
 <script>
 const $=id=>document.getElementById(id);
 const KEY="myBudgetApp_v2";
-const APP_VERSION="1.3.0";
+const APP_VERSION="1.4.0";
 const VERSION_KEY="myBudgetApp_seenVersion";
 const now=new Date();const todayISO=iso(now);const year=now.getFullYear();
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
