@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><radialGradient id="bg"><stop offset="0" stop-color="#17151b"/><stop offset="1" stop-color="#050505"/></radialGradient></defs>
+<rect width="512" height="512" rx="0" fill="url(#bg)"/>
+<g font-family="Arial, Helvetica, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="-2">
+<text x="256" y="225" font-size="92" fill="#f8f6fb">Мой</text>
+<text x="256" y="300" font-size="72" fill="#e879c5">бюджет</text>
+</g></svg>
