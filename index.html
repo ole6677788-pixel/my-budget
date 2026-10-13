@@ -107,7 +107,7 @@ function renderHome(){let start=data.start||todayISO,end=data.end||yearEnd;if(en
 
 let stagedBankTransactions=[];
 function bankDate(value){
- const v=String(value||"").trim();let m=v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+ const v=String(value||"").trim();const compact=v.match(/^(\d{4})(\d{2})(\d{2})/);if(compact)return compact[1]+"-"+compact[2]+"-"+compact[3];let m=v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
  if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
  m=v.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
  if(m){let y=Number(m[3]);if(y<100)y+=y<70?2000:1900;return y+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0")}
